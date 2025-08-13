@@ -1,6 +1,7 @@
 from fastapi import FastAPI
-from db import get_connection
-from auth import hash_password, create_access_token
+from db.base import get_connection
+from auth.hashing import hash_password
+from auth.jwt_handler import create_access_token
 
 app = FastAPI()
 

@@ -5,9 +5,12 @@ name = "pypi"
 
 [packages]
 fastapi = {extras = ["standard"], version = "*"}
-psycopg2-binary = "*"
 pyjwt = "*"
 passlib = {extras = ["bcrypt"], version = "*"}
+pydantic-settings = "*"
+alembic = "*"
+psycopg2-binary = "*"
+sqlalchemy = "*"
 
 [dev-packages]
 
