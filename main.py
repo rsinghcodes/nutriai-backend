@@ -2,8 +2,17 @@ from fastapi import FastAPI
 from db.base import get_connection
 from auth.hashing import hash_password
 from auth.jwt_handler import create_access_token
+from core.middleware import OnboardingMiddleware
 
-app = FastAPI()
+from api import api_router
+
+app = FastAPI(title="NutriAI Backend")
+
+# app.add_middleware(OnboardingMiddleware)
+
+# Mount the API router under /api
+app.include_router(api_router, prefix="/api")
+
 
 @app.get("/health")
 def health():

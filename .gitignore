@@ -1,0 +1,19 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment variables (keep env.example for reference)
+.env
+.env.*
+
+# Alembic cache
+migrations/__pycache__/
+migrations/versions/__pycache__/
+
+# Logs
+*.log

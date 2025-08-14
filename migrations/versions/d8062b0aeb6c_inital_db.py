@@ -1,8 +1,8 @@
-"""Initial schema
+"""Inital db
 
-Revision ID: 7c6faa25902d
+Revision ID: d8062b0aeb6c
 Revises: 
-Create Date: 2025-08-13 21:48:25.518252
+Create Date: 2025-08-14 18:42:20.320877
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '7c6faa25902d'
+revision: str = 'd8062b0aeb6c'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -37,8 +37,8 @@ def upgrade() -> None:
     op.create_index(op.f('ix_food_items_id'), 'food_items', ['id'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
-    sa.Column('name', sa.Text(), nullable=True),
-    sa.Column('email', sa.Text(), nullable=True),
+    sa.Column('name', sa.Text(), nullable=False),
+    sa.Column('email', sa.Text(), nullable=False),
     sa.Column('password', sa.Text(), nullable=False),
     sa.Column('height_cm', sa.DECIMAL(precision=5, scale=2), nullable=True),
     sa.Column('weight_kg', sa.DECIMAL(precision=5, scale=2), nullable=True),
@@ -47,6 +47,7 @@ def upgrade() -> None:
     sa.Column('bmi', sa.DECIMAL(precision=5, scale=2), nullable=True),
     sa.Column('dietary_prefs', sa.JSON(), nullable=True),
     sa.Column('goals', sa.Text(), nullable=True),
+    sa.Column('is_onboarded', sa.Boolean(), nullable=True),
     sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('now()'), nullable=True),
     sa.PrimaryKeyConstraint('id')
     )
