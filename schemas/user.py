@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from typing import Optional, List, Literal
 from enum import Enum
 
 class GenderType(str, Enum):
@@ -20,11 +20,11 @@ class GoalType(str, Enum):
 class UserCreate(BaseModel):
     email: EmailStr
     password: str
-    full_name: str
+    name: str
 
 class UserOnboarding(BaseModel):
     age: int
-    gender: str
+    gender: Literal["male", "female", "other"]
     height_cm: float
     weight_kg: float
     dietary_prefs: Optional[List[DietaryPreference]] = None
@@ -39,7 +39,6 @@ class AuthUser(BaseModel):
     email: EmailStr
     name: str
     is_onboarded: bool
-
     class Config:
         from_attributes = True
 
