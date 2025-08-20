@@ -11,6 +11,8 @@ pydantic-settings = "*"
 alembic = "*"
 psycopg2-binary = "*"
 sqlalchemy = "*"
+langchain-google-genai = "*"
+langchain = "*"
 
 [dev-packages]
 

@@ -40,11 +40,15 @@ class AuthAndOnboardingMiddleware(BaseHTTPMiddleware):
                 return JSONResponse(status_code=401, content={"detail": "Invalid token payload"})
 
             db: Session = next(get_db())
-            user = db.query(User).filter(User.id == user_id).first()
+            try:
+                user = db.query(User).filter(User.id == user_id).first()
+            finally:
+                db.close()
+
             if not user:
                 return JSONResponse(status_code=401, content={"detail": "User not found"})
 
-            if not user.is_onboarded and not path.startswith("/api/v1/onboarding"):
+            if not user.is_onboarded and not request.url.path.startswith("/api/v1/onboarding"):
                 return JSONResponse(status_code=403, content={"detail": "Onboarding not completed"})
 
             request.state.user = user
