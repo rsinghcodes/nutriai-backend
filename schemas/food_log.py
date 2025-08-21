@@ -1,9 +1,11 @@
 from pydantic import BaseModel, condecimal
 from datetime import datetime
+from decimal import Decimal
+from typing import Annotated
 
 class FoodLogCreate(BaseModel):
     food_id: int
-    quantity: condecimal(gt=0)  # in given unit
+    quantity: Annotated[Decimal, condecimal(gt=0)]  # in given unit
     unit: str
 
 class FoodLogResponse(BaseModel):
