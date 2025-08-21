@@ -1,9 +1,23 @@
 import json
+import re
 from typing import List, Dict
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import PromptTemplate
 from core.config import settings
 from schemas.plan import GeneratedPlanSchema
+
+def extract_json(text: str) -> dict:
+    """
+    Extract JSON object from text, even if wrapped in markdown fences or extra text.
+    """
+    # Try to locate the first and last curly braces
+    match = re.search(r"\{.*\}", text, re.DOTALL)
+    if not match:
+        raise ValueError("No JSON object found in AI response")
+    json_str = match.group(0)
+
+    # Attempt to parse
+    return json.loads(json_str)
 
 def generate_meal_plan(user_profile: dict, food_items: List[Dict], days: int = 1) -> GeneratedPlanSchema:
     llm = ChatGoogleGenerativeAI(
@@ -53,9 +67,9 @@ def generate_meal_plan(user_profile: dict, food_items: List[Dict], days: int = 1
     response = llm.invoke(formatted_prompt)
 
     try:
-        parsed_data = json.loads(response.content)
-    except json.JSONDecodeError:
-        raise ValueError("AI response not in expected JSON format")
+        parsed_data = extract_json(response.content)
+    except Exception as e:
+        raise ValueError(f"AI response not in expected JSON format: {str(e)}")
 
     # Validate with Pydantic
     return GeneratedPlanSchema(**parsed_data)
