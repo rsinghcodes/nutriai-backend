@@ -9,6 +9,22 @@ router = APIRouter(
     tags=["Plans"]
 )
 
+@router.get("/")
+def get_plans(request: Request, db: Session = Depends(get_db)):
+    current_user = request.state.user
+    plans = db.query(Plan).filter(Plan.user_id == current_user.id).all()
+
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "description": p.description,
+            "created_at": p.created_at,
+        }
+        for p in plans
+    ]
+
+
 @router.get("/{plan_id}")
 def get_plan(plan_id: int, request: Request, db: Session = Depends(get_db)):
     current_user = request.state.user
