@@ -5,6 +5,7 @@ from db.models.food import FoodLog, FoodItem
 from db.models.workout import WorkoutLog, Workout
 from sqlalchemy.sql import func
 from datetime import datetime, timedelta
+from pytz import timezone
 
 router = APIRouter(
     prefix="/v1/dashboard",
@@ -77,7 +78,12 @@ def get_dashboard_trends(
     db: Session = Depends(get_db)
 ):
     current_user = request.state.user
-    since_date = datetime.utcnow() - timedelta(days=days)
+    user_tz = timezone("Asia/Kolkata")  # IST
+    
+    # Get today in user's timezone
+    today_local = datetime.now(user_tz).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    since_date = today_local - timedelta(days=days - 1)
 
     trends = []
 
@@ -92,6 +98,7 @@ def get_dashboard_trends(
                     (FoodLog.quantity / FoodItem.reference_amount) * FoodItem.calories
                 ).label("calories")
             )
+            .select_from(FoodLog)  
             .join(FoodItem, FoodLog.food_id == FoodItem.id)
             .filter(
                 FoodLog.user_id == current_user.id,
@@ -101,14 +108,11 @@ def get_dashboard_trends(
             .first()
         )
 
-        # ---- Calories Burned ----
+        # ---- Calories Burned (using estimated_calories) ----
         workout_logs = (
             db.query(
-                func.sum(
-                    (WorkoutLog.duration / Workout.reference_duration) * Workout.calories_burned
-                ).label("burned")
+                func.sum(WorkoutLog.estimated_calories).label("burned")
             )
-            .join(Workout, WorkoutLog.workout_id == Workout.id)
             .filter(
                 WorkoutLog.user_id == current_user.id,
                 WorkoutLog.logged_at >= day_start,

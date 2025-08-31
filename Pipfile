@@ -13,6 +13,7 @@ psycopg2-binary = "*"
 sqlalchemy = "*"
 langchain-google-genai = "*"
 langchain = "*"
+pytz = "*"
 
 [dev-packages]
 
