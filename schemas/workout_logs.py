@@ -16,6 +16,7 @@ class WorkoutLogResponse(BaseModel):
     sets: Optional[int]
     reps_per_set: Optional[int]
     total_reps: Optional[int]
+    duration_minutes: Optional[int] 
     estimated_calories: float
     muscle_groups: List[str]
     logged_at: datetime

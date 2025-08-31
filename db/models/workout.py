@@ -20,6 +20,7 @@ class WorkoutLog(Base):
     workout_id = Column(Integer, ForeignKey("workouts.id"))
     sets = Column(Integer)
     reps_per_set = Column(Integer)
-    total_reps = Column(Integer)  # computed in backend, not DB generated
+    total_reps = Column(Integer)  # only for strength workouts
+    duration_minutes = Column(Integer)  # for time-based workouts
     estimated_calories = Column(DECIMAL(6, 2))
     logged_at = Column(TIMESTAMP(timezone=True), server_default=func.now())

@@ -21,16 +21,24 @@ def log_workout(request: Request, body: WorkoutLogCreate):
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
 
-    # Determine total units performed
+    # Strength workouts (reps-based)
     if workout.unit == "reps":
+        if body.sets is None or body.reps_per_set is None:
+            raise HTTPException(status_code=400, detail="Sets and reps are required for reps-based workout")
         total_reps = body.sets * body.reps_per_set
+        duration_minutes = None
+        estimated_calories = float(workout.calories_per_unit) * total_reps
+
+    # Time-based workouts (cardio, yoga, etc.)
     elif workout.unit == "minutes":
-        total_reps = body.duration_minutes
+        if body.duration_minutes is None:
+            raise HTTPException(status_code=400, detail="Duration is required for time-based workout")
+        total_reps = None
+        duration_minutes = body.duration_minutes
+        estimated_calories = float(workout.calories_per_unit) * duration_minutes
+
     else:
         raise HTTPException(status_code=400, detail="Unsupported workout unit")
-
-    # Auto-calculate calories
-    estimated_calories = float(workout.calories_per_unit) * total_reps
 
     workout_log = WorkoutLog(
         user_id=user.id,
@@ -38,7 +46,8 @@ def log_workout(request: Request, body: WorkoutLogCreate):
         sets=body.sets if workout.unit == "reps" else None,
         reps_per_set=body.reps_per_set if workout.unit == "reps" else None,
         total_reps=total_reps,
-        estimated_calories=estimated_calories
+        duration_minutes=duration_minutes,
+        estimated_calories=estimated_calories,
     )
     db.add(workout_log)
     db.commit()
@@ -51,10 +60,11 @@ def log_workout(request: Request, body: WorkoutLogCreate):
         unit=workout.unit,
         sets=workout_log.sets,
         reps_per_set=workout_log.reps_per_set,
-        total_reps=total_reps ,
+        total_reps=total_reps,
+        duration_minutes=duration_minutes,
         estimated_calories=estimated_calories,
         muscle_groups=workout.muscle_groups,
-        logged_at=workout_log.logged_at
+        logged_at=workout_log.logged_at,
     )
 
 
@@ -76,13 +86,6 @@ def list_workouts(request: Request):
 
     results = []
     for log, workout in logs:
-        if workout.unit == "reps":
-            total_reps = log.sets * log.reps_per_set
-        elif workout.unit == "minutes":
-            total_reps = log.duration_minutes
-        else:
-            total_reps = None
-
         results.append(
             WorkoutLogResponse(
                 id=log.id,
@@ -91,10 +94,11 @@ def list_workouts(request: Request):
                 unit=workout.unit,
                 sets=log.sets,
                 reps_per_set=log.reps_per_set,
-                total_reps=total_reps,
-                estimated_calories=log.estimated_calories,
+                total_reps=log.total_reps,
+                duration_minutes=log.duration_minutes,  # ⬅️ now properly returned
+                estimated_calories=float(log.estimated_calories),
                 muscle_groups=workout.muscle_groups,
-                logged_at=log.logged_at
+                logged_at=log.logged_at,
             )
         )
 
