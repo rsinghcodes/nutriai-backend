@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Query, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from db.session import get_db
 from db.models.food import FoodItem, FoodLog
-from schemas.food_log import FoodLogCreate, FoodLogResponse
+from schemas.food_log import FoodLogCreate, FoodLogResponse, FoodSummaryResponse, DailyFoodSummary
+from datetime import datetime, timedelta
 
 router = APIRouter(
     prefix="/v1/food-logs",
@@ -56,20 +58,38 @@ def create_food_log(request: Request, body: FoodLogCreate):
 
 
 @router.get("/", response_model=list[FoodLogResponse])
-def list_food_logs(request: Request):
+def list_food_logs(
+    request: Request,
+    date: str = Query(None, description="Filter logs for a specific date (YYYY-MM-DD)")
+):
     user = request.state.user
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
 
     db: Session = next(get_db())
 
-    logs = (
+    query = (
         db.query(FoodLog, FoodItem)
         .join(FoodItem, FoodItem.id == FoodLog.food_id)
         .filter(FoodLog.user_id == user.id)
-        .order_by(FoodLog.logged_at.desc())
-        .all()
     )
+
+    # ✅ If date filter provided, restrict logs to that day
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+
+        query = query.filter(
+            FoodLog.logged_at >= day_start,
+            FoodLog.logged_at < day_end
+        )
+    
+    logs = query.order_by(FoodLog.logged_at.desc()).all()
 
     results = []
     for log, food in logs:
@@ -96,3 +116,56 @@ def list_food_logs(request: Request):
         )
 
     return results
+
+@router.get("/summary", response_model=FoodSummaryResponse)
+def get_food_summary(
+    request: Request,
+    days: int = 7,
+    db: Session = Depends(get_db)
+):
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    today = datetime.utcnow().date()
+    since_date = today - timedelta(days=days - 1)
+
+    daily_logs = (
+        db.query(
+            func.date(FoodLog.logged_at).label("date"),
+            func.sum(FoodItem.calories * (FoodLog.quantity / FoodItem.reference_amount)).label("calories"),
+            func.sum(FoodItem.protein * (FoodLog.quantity / FoodItem.reference_amount)).label("protein"),
+            func.sum(FoodItem.carbs * (FoodLog.quantity / FoodItem.reference_amount)).label("carbs"),
+            func.sum(FoodItem.fats * (FoodLog.quantity / FoodItem.reference_amount)).label("fats"),
+        )
+        .join(FoodItem, FoodItem.id == FoodLog.food_id)
+        .filter(
+            FoodLog.user_id == user.id,
+            FoodLog.logged_at >= since_date
+        )
+        .group_by(func.date(FoodLog.logged_at))
+        .order_by(func.date(FoodLog.logged_at).desc())
+        .all()
+    )
+
+    daily_summary = [
+        DailyFoodSummary(
+            date=row.date,
+            calories=float(row.calories or 0),
+            protein=float(row.protein or 0),
+            carbs=float(row.carbs or 0),
+            fats=float(row.fats or 0),
+        )
+        for row in daily_logs
+    ]
+
+    return FoodSummaryResponse(
+        days=days,
+        range_start=since_date,
+        range_end=today,
+        total_calories=sum(d.calories for d in daily_summary),
+        total_protein=sum(d.protein for d in daily_summary),
+        total_carbs=sum(d.carbs for d in daily_summary),
+        total_fats=sum(d.fats for d in daily_summary),
+        daily=daily_summary
+    )

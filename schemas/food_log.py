@@ -1,7 +1,7 @@
 from pydantic import BaseModel, condecimal
-from datetime import datetime
+from datetime import datetime, date
 from decimal import Decimal
-from typing import Annotated
+from typing import Annotated, List
 
 class FoodLogCreate(BaseModel):
     food_id: int
@@ -23,3 +23,21 @@ class FoodLogResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DailyFoodSummary(BaseModel):
+    date: date
+    calories: float
+    protein: float
+    carbs: float
+    fats: float
+
+
+class FoodSummaryResponse(BaseModel):
+    days: int
+    range_start: date
+    range_end: date
+    total_calories: float
+    total_protein: float
+    total_carbs: float
+    total_fats: float
+    daily: List[DailyFoodSummary]

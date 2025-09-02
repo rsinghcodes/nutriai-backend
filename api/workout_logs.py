@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Request, HTTPException
+from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import func
 from db.session import get_db
 from db.models.workout import Workout, WorkoutLog
-from schemas.workout_logs import WorkoutLogCreate, WorkoutLogResponse
+from schemas.workout_logs import WorkoutLogCreate, WorkoutLogResponse, WorkoutSummaryResponse, DailyWorkoutSummary
+from datetime import datetime, timedelta
 
 router = APIRouter(
     prefix="/v1/workout-logs",
@@ -67,22 +69,39 @@ def log_workout(request: Request, body: WorkoutLogCreate):
         logged_at=workout_log.logged_at,
     )
 
-
 @router.get("/", response_model=list[WorkoutLogResponse])
-def list_workouts(request: Request):
+def list_workouts(
+    request: Request,
+    date: str = Query(None, description="Filter logs for a specific date (YYYY-MM-DD)"),
+):
     user = request.state.user
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-
+    
     db: Session = next(get_db())
-
-    logs = (
+    
+    query = (
         db.query(WorkoutLog, Workout)
         .join(Workout, Workout.id == WorkoutLog.workout_id)
         .filter(WorkoutLog.user_id == user.id)
-        .order_by(WorkoutLog.logged_at.desc())
-        .all()
     )
+
+    # ✅ If date filter provided, restrict logs to that day
+    if date:
+        try:
+            target_date = datetime.strptime(date, "%Y-%m-%d").date()
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid date format. Use YYYY-MM-DD")
+
+        day_start = datetime.combine(target_date, datetime.min.time())
+        day_end = day_start + timedelta(days=1)
+
+        query = query.filter(
+            WorkoutLog.logged_at >= day_start,
+            WorkoutLog.logged_at < day_end
+        )
+
+    logs = query.order_by(WorkoutLog.logged_at.desc()).all()
 
     results = []
     for log, workout in logs:
@@ -95,7 +114,7 @@ def list_workouts(request: Request):
                 sets=log.sets,
                 reps_per_set=log.reps_per_set,
                 total_reps=log.total_reps,
-                duration_minutes=log.duration_minutes,  # ⬅️ now properly returned
+                duration_minutes=log.duration_minutes,
                 estimated_calories=float(log.estimated_calories),
                 muscle_groups=workout.muscle_groups,
                 logged_at=log.logged_at,
@@ -103,3 +122,49 @@ def list_workouts(request: Request):
         )
 
     return results
+
+@router.get("/summary", response_model=WorkoutSummaryResponse)
+def get_workout_summary(
+    request: Request,
+    days: int = 7,
+    db: Session = Depends(get_db)
+):
+    user = request.state.user
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+    today = datetime.utcnow().date()
+    since_date = today - timedelta(days=days - 1)
+
+    daily_logs = (
+        db.query(
+            func.date(WorkoutLog.logged_at).label("date"),
+            func.count(WorkoutLog.id).label("workouts"),
+            func.sum(WorkoutLog.estimated_calories).label("calories")
+        )
+        .filter(
+            WorkoutLog.user_id == user.id,
+            WorkoutLog.logged_at >= since_date
+        )
+        .group_by(func.date(WorkoutLog.logged_at))
+        .order_by(func.date(WorkoutLog.logged_at).desc())
+        .all()
+    )
+
+    daily_summary = [
+        DailyWorkoutSummary(
+            date=row.date,
+            workouts=row.workouts,
+            calories=float(row.calories or 0)
+        )
+        for row in daily_logs
+    ]
+
+    return WorkoutSummaryResponse(
+        days=days,
+        range_start=since_date,
+        range_end=today,
+        total_workouts=sum(d.workouts for d in daily_summary),
+        total_calories=sum(d.calories for d in daily_summary),
+        daily=daily_summary
+    )
