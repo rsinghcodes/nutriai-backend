@@ -59,7 +59,29 @@ class UserResponse(BaseModel):
     bmi: float | None
     dietary_prefs: Optional[List[DietaryPreference]]
     goals: Optional[GoalType]
+    target_weight: Optional[float] = None
     is_onboarded: bool
 
     class Config:
         from_attributes = True
+
+class UserGoalsUpdate(BaseModel):
+    goals: GoalType
+    target_weight: Optional[float] = None
+
+class UserGoalsResponse(BaseModel):
+    id: int
+    goals: Optional[GoalType]
+    target_weight: Optional[float]
+    current_weight: Optional[float]
+    bmi: Optional[float]
+
+    class Config:
+        from_attributes = True
+
+class UserUpdateMe(BaseModel):
+    name: Optional[str] = None
+    age: Optional[int] = None
+    height_cm: Optional[float] = None
+    weight_kg: Optional[float] = None
+    dietary_prefs: Optional[List[str]] = None

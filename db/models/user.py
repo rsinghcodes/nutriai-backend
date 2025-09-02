@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, Boolean, Text, DECIMAL, JSON, TIMESTAMP
+from sqlalchemy import Column, Integer, Boolean, Text, DECIMAL, JSON, TIMESTAMP, Float
 from sqlalchemy.sql import func
 from . import Base
 
@@ -18,5 +18,6 @@ class User(Base):
     bmi = Column(DECIMAL(5, 2), nullable=True)
     dietary_prefs = Column(JSON, nullable=True)
     goals = Column(Text, nullable=True)
+    target_weight = Column(Float, nullable=True)
     is_onboarded = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
