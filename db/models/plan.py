@@ -1,6 +1,6 @@
-# db/models/plan.py
-from sqlalchemy import Column, Integer, Text, JSON, ForeignKey, TIMESTAMP, Boolean, DECIMAL
+from sqlalchemy import Column, Integer, String, Text, JSON, ForeignKey, TIMESTAMP, Boolean, DECIMAL
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from . import Base
 
 class Plan(Base):
@@ -10,6 +10,12 @@ class Plan(Base):
     name = Column(Text, nullable=False)
     description = Column(Text)
 
+    items = relationship(
+        "PlanItem",
+        back_populates="plan",
+        cascade="all, delete-orphan"
+    )
+
 class PlanItem(Base):
     __tablename__ = "plan_items"
     id = Column(Integer, primary_key=True, index=True)
@@ -18,15 +24,9 @@ class PlanItem(Base):
     quantity = Column(DECIMAL(8, 2), nullable=False)
     unit = Column(Text, nullable=False)
     meal_name = Column(Text, nullable=False)
+    day = Column(String, nullable=True) 
 
-class AIPlan(Base):
-    __tablename__ = "ai_plans"
-    id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"))
-    plan_type = Column(Text)                 # e.g., "meal"
-    prompt = Column(Text)                    # optional; store if you build it
-    response = Column(JSON)                  # store full GeneratedPlanSchema
-    generated_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+    plan = relationship("Plan", back_populates="items")
 
 class Reminder(Base):
     __tablename__ = "reminders"

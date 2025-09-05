@@ -6,4 +6,4 @@ Base = declarative_base()
 from .user import User
 from .food import FoodItem, FoodLog
 from .workout import Workout, WorkoutLog
-from .plan import AIPlan, Reminder
+from .plan import Reminder

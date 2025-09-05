@@ -10,9 +10,6 @@ class MealSchema(BaseModel):
     meal: str = Field(..., description="Meal name (e.g., Breakfast, Lunch)")
     items: List[PlanItemSchema]
 
-class DaySchema(BaseModel):
-    day: int = Field(..., description="Day number in the plan")
-    meals: List[MealSchema]
-
 class GeneratedPlanSchema(BaseModel):
-    days: List[DaySchema]
+    day: str = Field(..., description="Day in the plan")
+    meals: List[MealSchema]
