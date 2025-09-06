@@ -7,3 +7,4 @@ from .user import User
 from .food import FoodItem, FoodLog
 from .workout import Workout, WorkoutLog
 from .plan import Reminder
+from .tracking import WaterLog, StepLog

@@ -13,6 +13,7 @@ from api.plans import router as plans
 from api.user import router as user
 from api.foods import router as foods
 from api.workout import router as workouts
+from api.tracking import router as tracking
 
 # Register routes with their own sub-prefixes
 api_router.include_router(auth_router, tags=["Authentication"])
@@ -24,3 +25,4 @@ api_router.include_router(plans, tags=["Plans"])
 api_router.include_router(user, tags=["User"])
 api_router.include_router(foods, tags=["Foods"])
 api_router.include_router(workouts, tags=["Workouts"])
+api_router.include_router(tracking, tags=["Tracking"])

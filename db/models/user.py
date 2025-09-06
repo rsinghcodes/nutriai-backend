@@ -1,5 +1,6 @@
 from sqlalchemy import Column, Integer, Boolean, Text, DECIMAL, JSON, TIMESTAMP, Float
 from sqlalchemy.sql import func
+from sqlalchemy.orm import relationship
 from . import Base
 
 class User(Base):
@@ -21,3 +22,7 @@ class User(Base):
     target_weight = Column(Float, nullable=True)
     is_onboarded = Column(Boolean, default=False)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
+
+    water_logs = relationship("WaterLog", back_populates="user")
+    step_logs = relationship("StepLog", back_populates="user")
+
