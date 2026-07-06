@@ -22,7 +22,7 @@ def extract_json(text: str) -> dict:
 
 def generate_meal_plan(user_profile: dict, food_items: List[Dict], day: int = 1) -> GeneratedPlanSchema:
     llm = ChatGoogleGenerativeAI(
-        model="gemini-1.5-flash",
+        model="gemini-2.5-flash",
         temperature=0.7,
         google_api_key=settings.GEMINI_API_KEY
     )

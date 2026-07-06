@@ -1,3 +1,4 @@
+from fastapi.responses import JSONResponse
 import jwt
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
@@ -95,12 +96,10 @@ def complete_onboarding(
 @router.post("/login", response_model=AuthResponse)
 def login_user(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
+    print("user", user)
     if not user or not verify_password(user_data.password, user.password):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid credentials"
-        )
-
+        raise JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
+        
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": str(user.id)},
