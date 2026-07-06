@@ -29,6 +29,8 @@ class UserOnboarding(BaseModel):
     weight_kg: float
     dietary_prefs: Optional[List[DietaryPreference]] = None
     goals: Optional[GoalType] = None
+    allergies: Optional[str] = None
+    budget: Optional[str] = None
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -61,6 +63,8 @@ class UserResponse(BaseModel):
     goals: Optional[GoalType]
     target_weight: Optional[float] = None
     is_onboarded: bool
+    allergies: Optional[str] = None
+    budget: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -85,3 +89,5 @@ class UserUpdateMe(BaseModel):
     height_cm: Optional[float] = None
     weight_kg: Optional[float] = None
     dietary_prefs: Optional[List[str]] = None
+    allergies: Optional[str] = None
+    budget: Optional[str] = None

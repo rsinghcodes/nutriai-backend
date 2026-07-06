@@ -1,4 +1,4 @@
-fastapi["standard"]
+fastapi[standard]
 pyjwt
 passlib[bcrypt]
 psycopg2-binary
@@ -8,3 +8,6 @@ psycopg2-binary
 sqlalchemy
 langchain-google-genai
 langchain
+langchain-community
+faiss-cpu
+tiktoken

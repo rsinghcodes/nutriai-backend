@@ -2,10 +2,13 @@ import json
 import re
 from typing import List, Dict
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
+from langchain_core.output_parsers import StrOutputParser
 from core.config import settings
 from schemas.plan import GeneratedPlanSchema
 from utils import get_day_name
+from services.rag_service import get_rag_retriever
 
 def extract_json(text: str) -> dict:
     """
@@ -20,51 +23,78 @@ def extract_json(text: str) -> dict:
     # Attempt to parse
     return json.loads(json_str)
 
+def format_docs(docs):
+    return "\n\n".join(doc.page_content for doc in docs)
+
 def generate_meal_plan(user_profile: dict, food_items: List[Dict], day: int = 1) -> GeneratedPlanSchema:
     llm = ChatGoogleGenerativeAI(
-        model="gemini-2.5-flash",
+        model="gemini-3.5-flash",
         temperature=0.7,
         google_api_key=settings.GEMINI_API_KEY
     )
 
-    prompt = PromptTemplate.from_template("""
-    You are a nutritionist AI.
-    Based on the user's profile and available foods, generate a meal plan for {day}.
-
-    User Profile:
-    Dietary Preference: {dietary_prefs}
-    Goal: {goals}
-    BMI: {bmi}
-
-    Available Food Items (name, calories, protein, carbs, fats per reference unit (only ml, g or piece for bread or chapati)):
-    {food_list}
-
-    Format the output strictly as JSON only for a single given day:
-    {{
-        "day": "Monday",   // must be given day name
-        "meals": [
-            {{
-                "meal": "Breakfast",
-                "items": [
-                    {{"food_id": 1, "quantity": 100, "unit": "g"}}
-                ]
-            }}
-        ]
-    }}
-    """)
-
-    formatted_prompt = prompt.format(
-        day=get_day_name(day),
-        dietary_prefs=user_profile["dietary_prefs"],
-        goals=user_profile["goals"],
-        bmi=user_profile["bmi"],
-        food_list=json.dumps(food_items, indent=2),
+    system_prompt = (
+        "You are a nutritionist AI. Use the following pieces of expert nutritional guidelines to "
+        "generate a customized meal plan for the user for a specific day.\n\n"
+        "Expert Nutritional Guidelines Context:\n{context}\n\n"
+        "User Profile:\n"
+        "Dietary Preference: {dietary_prefs}\n"
+        "Goal: {goals}\n"
+        "BMI: {bmi}\n\n"
+        "Available Food Items (name, calories, protein, carbs, fats per reference unit):\n"
+        "{food_list}\n\n"
+        "Format the output STRICTLY as a JSON object for the given day ({day}):\n"
+        "{{\n"
+        '    "day": "{day}",\n'
+        '    "meals": [\n'
+        "        {{\n"
+        '            "meal": "Breakfast",\n'
+        '            "items": [\n'
+        '                {{"food_id": 1, "quantity": 100, "unit": "g"}}\n'
+        "            ]\n"
+        "        }}\n"
+        "    ]\n"
+        "}}\n"
+    )
+    
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", system_prompt),
+        ("human", "Generate a meal plan for {day}.")
+    ])
+    
+    retriever = get_rag_retriever()
+    
+    rag_chain = (
+        {
+            "context": (lambda x: x["input"]) | retriever | format_docs,
+            "day": lambda x: x["day"],
+            "dietary_prefs": lambda x: x["dietary_prefs"],
+            "goals": lambda x: x["goals"],
+            "bmi": lambda x: x["bmi"],
+            "food_list": lambda x: x["food_list"],
+        }
+        | prompt
+        | llm
+        | StrOutputParser()
     )
 
-    response = llm.invoke(formatted_prompt)
+    day_name = get_day_name(day)
+    
+    # We formulate the "input" query to the RAG system so it retrieves relevant context.
+    # The user's goal and dietary prefs are good search queries for the vector store.
+    query_for_retrieval = f"Nutritional guidelines for {user_profile['dietary_prefs']} diet and {user_profile['goals']} goal."
+    
+    response_text = rag_chain.invoke({
+        "input": query_for_retrieval, 
+        "day": day_name,
+        "dietary_prefs": user_profile["dietary_prefs"],
+        "goals": user_profile["goals"],
+        "bmi": user_profile["bmi"],
+        "food_list": json.dumps(food_items, indent=2),
+    })
 
     try:
-        parsed_data = extract_json(response.content)
+        parsed_data = extract_json(response_text)
     except Exception as e:
         raise ValueError(f"AI response not in expected JSON format: {str(e)}")
 

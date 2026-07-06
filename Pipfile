@@ -4,16 +4,20 @@ verify_ssl = true
 name = "pypi"
 
 [packages]
+pytz = "*"
 fastapi = {extras = ["standard"], version = "*"}
 pyjwt = "*"
-passlib = {extras = ["bcrypt"], version = "*"}
+passlib = {extras = ["bcrypt"], version = "==1.7.4"}
+bcrypt = "==4.3.0"
 pydantic-settings = "*"
 alembic = "*"
 psycopg2-binary = "*"
 sqlalchemy = "*"
 langchain-google-genai = "*"
 langchain = "*"
-pytz = "*"
+langchain-community = "*"
+faiss-cpu = "*"
+tiktoken = "*"
 
 [dev-packages]
 

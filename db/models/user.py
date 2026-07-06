@@ -21,6 +21,8 @@ class User(Base):
     goals = Column(Text, nullable=True)
     target_weight = Column(Float, nullable=True)
     is_onboarded = Column(Boolean, default=False)
+    allergies = Column(Text, nullable=True)
+    budget = Column(Text, nullable=True)
     created_at = Column(TIMESTAMP(timezone=True), server_default=func.now())
 
     water_logs = relationship("WaterLog", back_populates="user")

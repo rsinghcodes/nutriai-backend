@@ -98,7 +98,7 @@ def login_user(user_data: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == user_data.email).first()
     print("user", user)
     if not user or not verify_password(user_data.password, user.password):
-        raise JSONResponse(status_code=401, content={"detail": "Invalid credentials"})
+        raise HTTPException(status_code=401, detail="Invalid credentials")
         
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
