@@ -35,6 +35,10 @@ def update_me(
         db_user.weight_kg = body.weight_kg
     if body.dietary_prefs is not None:
         db_user.dietary_prefs = body.dietary_prefs
+    if body.allergies is not None:
+        db_user.allergies = body.allergies
+    if body.budget is not None:
+        db_user.budget = body.budget
 
     # Auto-calculate BMI if height and weight are available
     if db_user.height_cm and db_user.weight_kg:
