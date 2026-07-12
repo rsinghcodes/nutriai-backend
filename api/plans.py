@@ -65,6 +65,9 @@ def get_plan(plan_id: int, request: Request, db: Session = Depends(get_db)):
         "plan_id": plan.id,
         "name": plan.name,
         "description": plan.description,
+        "workout_plan": plan.workout_plan,
+        "avoidance_list": plan.avoidance_list,
+        "budget_tips": plan.budget_tips,
         "days": days_list
     }
 

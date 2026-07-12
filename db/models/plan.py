@@ -9,6 +9,9 @@ class Plan(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     name = Column(Text, nullable=False)
     description = Column(Text)
+    workout_plan = Column(JSON, nullable=True)
+    avoidance_list = Column(JSON, nullable=True)
+    budget_tips = Column(JSON, nullable=True)
 
     items = relationship(
         "PlanItem",

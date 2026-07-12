@@ -20,12 +20,12 @@ class GraphState(TypedDict):
     iterations: int
     final_plan: dict
 
-def extract_json(text) -> dict:
+def extract_json(text) -> dict | list:
     if isinstance(text, list):
         text = "".join(part["text"] for part in text if "text" in part)
-    match = re.search(r"\{.*\}", text, re.DOTALL)
+    match = re.search(r"(\{.*\}|\[.*\])", text, re.DOTALL)
     if not match:
-        raise ValueError("No JSON object found in AI response")
+        raise ValueError("No JSON object or array found in AI response")
     return json.loads(match.group(0))
 
 llm = ChatGoogleGenerativeAI(
@@ -34,7 +34,7 @@ llm = ChatGoogleGenerativeAI(
     google_api_key=settings.GEMINI_API_KEY
 )
 
-def retrieve_context_node(state: GraphState):
+async def retrieve_context_node(state: GraphState):
     import os
     kb_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "knowledge_base", "general_guidelines.txt")
     try:
@@ -44,9 +44,9 @@ def retrieve_context_node(state: GraphState):
         context = "Follow general healthy guidelines."
     return {"context": context}
 
-def meal_planner_node(state: GraphState):
+async def meal_planner_node(state: GraphState):
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a Meal Planner AI. Generate a meal plan for the day based on the profile, constraints, and RAG context.\n"
+        ("system", "You are a Meal Planner AI. Generate a meal plan for {day_name} based on the profile, constraints, and RAG context.\n"
                    "Context: {context}\n"
                    "Profile: Diet={diet}, Goal={goal}, Allergies={allergies}, Budget={budget}\n"
                    "Available Foods: {food_list}\n"
@@ -56,7 +56,8 @@ def meal_planner_node(state: GraphState):
         ("human", "Generate the meal plan.")
     ])
     chain = prompt | llm
-    res = chain.invoke({
+    res = await chain.ainvoke({
+        "day_name": state["day_name"],
         "context": state["context"],
         "diet": state["user_profile"]["dietary_prefs"],
         "goal": state["user_profile"]["goals"],
@@ -67,9 +68,9 @@ def meal_planner_node(state: GraphState):
     })
     return {"meal_draft": res.content}
 
-def workout_planner_node(state: GraphState):
+async def workout_planner_node(state: GraphState):
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a Workout Planner AI. Generate a workout plan based on the profile.\n"
+        ("system", "You are a Workout Planner AI. Generate a workout plan for {day_name} based on the profile. Vary the focus area (e.g., Upper Body, Lower Body, Core, Cardio, Active Recovery) depending on the day of the week so that the user gets a balanced weekly routine.\n"
                    "Profile: Goal={goal}, BMI={bmi}\n"
                    "Feedback from Critic: {critic_feedback}\n\n"
                    "Output ONLY a JSON object:\n"
@@ -77,14 +78,15 @@ def workout_planner_node(state: GraphState):
         ("human", "Generate the workout plan.")
     ])
     chain = prompt | llm
-    res = chain.invoke({
+    res = await chain.ainvoke({
+        "day_name": state["day_name"],
         "goal": state["user_profile"]["goals"],
         "bmi": state["user_profile"]["bmi"],
         "critic_feedback": state.get("critic_feedback", "None")
     })
     return {"workout_draft": res.content}
 
-def critic_node(state: GraphState):
+async def critic_node(state: GraphState):
     prompt = ChatPromptTemplate.from_messages([
         ("system", "You are a Safety Critic. Review the drafted meal and workout plans against the user's allergies, budget, and goals.\n"
                    "Profile: Diet={diet}, Goal={goal}, Allergies={allergies}, Budget={budget}\n"
@@ -96,7 +98,7 @@ def critic_node(state: GraphState):
         ("human", "Review the drafts.")
     ])
     chain = prompt | llm
-    res = chain.invoke({
+    res = await chain.ainvoke({
         "diet": state["user_profile"]["dietary_prefs"],
         "goal": state["user_profile"]["goals"],
         "allergies": state["user_profile"].get("allergies", "None"),
@@ -109,37 +111,37 @@ def critic_node(state: GraphState):
     iters = state.get("iterations", 0) + 1
     return {"critic_feedback": res.content, "iterations": iters}
 
-def compiler_node(state: GraphState):
-    prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are the Compiler AI. Combine the approved drafts into the final complete health plan JSON.\n"
-                   "Draft Meal Plan: {meal_draft}\n"
-                   "Draft Workout Plan: {workout_draft}\n"
-                   "Profile: Allergies={allergies}, Budget={budget}\n"
-                   "Generate 'avoidance_list' and 'budget_tips' based on the profile.\n\n"
-                   "Output strictly JSON matching CompleteHealthPlanSchema:\n"
-                   "{{\n"
-                   '  "day": "{day}",\n'
-                   '  "meal_plan": [...],\n'
-                   '  "workout_plan": {{...}},\n'
-                   '  "avoidance_list": ["item1"],\n'
-                   '  "budget_tips": ["tip1"]\n'
-                   "}}"),
-        ("human", "Compile the final plan.")
-    ])
-    chain = prompt | llm
-    res = chain.invoke({
-        "day": state["day_name"],
-        "allergies": state["user_profile"].get("allergies", "None"),
-        "budget": state["user_profile"].get("budget", "Standard"),
-        "meal_draft": state["meal_draft"],
-        "workout_draft": state["workout_draft"]
-    })
-    
+async def compiler_node(state: GraphState):
     try:
-        parsed = extract_json(res.content)
+        meal_plan = extract_json(state["meal_draft"])
+        workout_plan = extract_json(state["workout_draft"])
     except Exception as e:
-        raise ValueError(f"Failed to parse final plan: {e}")
-    return {"final_plan": parsed}
+        raise ValueError(f"Failed to parse drafts: {e}")
+        
+    user_profile = state["user_profile"]
+    allergies = user_profile.get("allergies", "")
+    avoidance_list = []
+    if allergies and allergies.lower() != "none":
+        avoidance_list.append(f"Avoid foods containing {allergies}.")
+        
+    bmi = user_profile.get("bmi")
+    if bmi and float(bmi) > 30:
+        avoidance_list.append("Avoid high-impact exercises that strain joints.")
+        
+    budget = user_profile.get("budget", "Standard")
+    budget_tips = [
+        f"Choose locally sourced/seasonal ingredients to fit your {budget} budget.",
+        "Prep meals in bulk to reduce costs."
+    ]
+    
+    final_plan = {
+        "day": state["day_name"],
+        "meal_plan": meal_plan,
+        "workout_plan": workout_plan,
+        "avoidance_list": avoidance_list,
+        "budget_tips": budget_tips
+    }
+    return {"final_plan": final_plan}
 
 def route_critic(state: GraphState):
     feedback = state["critic_feedback"]
@@ -160,7 +162,8 @@ workflow.add_node("compiler", compiler_node)
 
 workflow.set_entry_point("retrieve")
 workflow.add_edge("retrieve", "meal_planner")
-workflow.add_edge("meal_planner", "workout_planner")
+workflow.add_edge("retrieve", "workout_planner")
+workflow.add_edge("meal_planner", "critic")
 workflow.add_edge("workout_planner", "critic")
 
 workflow.add_conditional_edges(
@@ -175,7 +178,7 @@ workflow.add_edge("compiler", END)
 
 health_plan_app = workflow.compile()
 
-def generate_complete_health_plan(user_profile: dict, food_items: List[Dict], day: int = 1) -> CompleteHealthPlanSchema:
+async def generate_complete_health_plan(user_profile: dict, food_items: List[Dict], day: int = 1) -> CompleteHealthPlanSchema:
     day_name = get_day_name(day)
     initial_state = {
         "user_profile": user_profile,
@@ -184,5 +187,6 @@ def generate_complete_health_plan(user_profile: dict, food_items: List[Dict], da
         "iterations": 0
     }
     
-    final_state = health_plan_app.invoke(initial_state)
+    final_state = await health_plan_app.ainvoke(initial_state)
     return CompleteHealthPlanSchema(**final_state["final_plan"])
+
